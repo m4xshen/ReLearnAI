@@ -1,0 +1,31 @@
+version: '3'
+services:
+  db:
+    image: postgres:16
+    container_name: mistake_pg
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: example
+      POSTGRES_DB: mistake_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  backend:
+    build: ./backend
+    container_name: mistake_backend
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      DB_HOST: db
+      DB_USER: postgres
+      DB_PASS: example
+      DB_NAME: mistake_db
+    depends_on:
+      - db
+
+volumes:
+  pgdata:

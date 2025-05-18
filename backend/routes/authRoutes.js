@@ -1,27 +1,16 @@
 const express = require('express');
 const router = express.Router();
-const User = require('../controllers/authController');
+const authController = require('../controllers/authController');
+const auth = require('../middleware/auth');
 
-router.post('/register', async (req, res) => {
-  const { name, email, password } = req.body;
-  try {
-    const user = await User.create(name, email, password);
-    res.status(201).json(user);
-  } catch (err) {
-    res.status(400).json({ error: err.message });
-  }
-});
+router.post('/register', authController.register);
+router.post('/login', authController.login);
 
-router.post('/login', async (req, res) => {
-  const { email, password } = req.body;
-  const user = await User.findByEmail(email);
-  if (!user) return res.status(401).json({ error: 'User not found' });
-
-  const bcrypt = require('bcrypt');
-  const match = await bcrypt.compare(password, user.password_hash);
-  if (!match) return res.status(401).json({ error: 'Invalid password' });
-
-  res.json({ message: 'Login success', user });
+// Example of a protected route
+router.get('/me', auth, (req, res) => {
+  // Remove password_hash from response
+  const { password_hash, ...userWithoutPassword } = req.user;
+  res.json(userWithoutPassword);
 });
 
 module.exports = router;

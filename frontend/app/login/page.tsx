@@ -14,12 +14,25 @@ export default function LoginPage() {
   const router = useRouter()
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
+  const [error, setError] = useState("")
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async(e: React.FormEvent) => {
     e.preventDefault()
-    // 在實際應用中，這裡應該處理登入邏輯
-    // 這裡為了演示，我們直接導航到首頁
-    router.push("/")
+    setError("")
+    const res = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    })
+
+    if (!res.ok) {
+      const { error } = await res.json()
+      setError(error || '登入失敗')
+      return
+    }
+
+    // 成功時，Cookie 已經被瀏覽器儲存，直接跳轉即可
+    router.push('/')
   }
 
   return (

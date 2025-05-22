@@ -16,12 +16,33 @@ export default function RegisterPage() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
+  const [error, setError] = useState('');
 
-  const handleSubmit = (e: React.FormEvent) => {
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    setError('');
     e.preventDefault()
-    // 在實際應用中，這裡應該處理註冊邏輯
-    // 這裡為了演示，我們直接導航到首頁
-    router.push("/")
+    if (password !== confirmPassword) {
+      setError('兩次密碼不一致');
+      return;
+    }
+    try {
+      const response = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, email, password }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        setError(errorData.message || '註冊失敗');
+        return;
+      }
+
+      router.push('/login');  // 註冊完成導向登入頁
+    } catch (err) {
+      setError('系統錯誤，請稍後再試');
+    }
   }
 
   return (

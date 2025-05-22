@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: ReLearnAI
+    env: node
+    buildCommand: cd backend && npm install
+    startCommand: cd backend && npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: JWT_SECRET
+        generateValue: true
+      - key: DB_HOST
+        value: dpg-d0ktgjffte5s7390gun0-a.oregon-postgres.render.com
+      - key: DB_USER
+        value: relearnai_database_user
+      - key: DB_PASS
+        value: MJpReDga1tD17eoV06aK0BohiyWsJ6xN
+      - key: DB_NAME
+        value: relearnai_database
+      - key: FRONTEND_URL
+        value: https://relearnai.onrender.com

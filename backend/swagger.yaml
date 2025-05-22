@@ -1,0 +1,220 @@
+openapi: 3.0.0
+info:
+  title: Mistake Book API
+  version: 1.0.0
+  description: API for managing users, folders, and questions in a mistake-book app
+paths:
+  /auth/register:
+    post:
+      summary: Register a new user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                email:
+                  type: string
+                password_hash:
+                  type: string
+              required:
+                - name
+                - email
+                - password
+      responses:
+        '201':
+          description: User registered successfully
+  /auth/login:
+    post:
+      summary: User login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                password:
+                  type: string
+              required:
+                - email
+                - password
+      responses:
+        '200':
+          description: Login successful, returns JWT token
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token:
+                    type: string
+                    description: JWT token used for authentication
+                required:
+                  - token
+        '401':
+          description: Invalid credentials
+  /question-set:
+    post:
+      summary: Create a folder with tag and a batch of questions
+      security:
+        - bearerAuth: []
+      parameters: 
+        - name: token
+          in: header
+          description: 'Authorization: Bearer <token>' 
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                folder_name:
+                  type: string
+                tag_name:
+                  type: string
+                questions:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      description:
+                        type: string
+                      options:
+                        type: object
+                        properties:
+                          A:
+                            type: string
+                          B:
+                            type: string
+                          C:
+                            type: string
+                          D:
+                            type: string
+                        required: [A, B, C, D]
+                      answer:
+                        type: string
+                        enum: [A, B, C, D]
+                      user_answer:
+                        type: string
+                        enum: [A, B, C, D]
+                      note:
+                        type: string
+                    required: [description, options, answer, user_answr]
+              required: [folder_name, tag_name, questions]
+      responses:
+        '201':
+          description: Folder and questions created successfully
+        '400':
+          description: Invalid request payload
+  /folder:
+    post:
+      summary: Create a folder
+      security:
+        - bearerAuth: []
+      parameters: 
+        - name: token
+          in: header
+          description: 'Authorization: Bearer <token>' 
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                tag_id:
+                  type: string
+                  format: uuid
+              required:
+                - title
+                - tag_id
+      responses:
+        '201':
+          description: Folder created
+    get:
+      summary: Get all folders for current user
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: List of folders
+  
+  /questions:
+    post:
+      summary: Create a question
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                folder_id:
+                  type: string
+                  format: uuid
+                description:
+                  type: string
+                options:
+                  type: object
+                  properties:
+                    A:
+                      type: string
+                    B:
+                      type: string
+                    C:
+                      type: string
+                    D:
+                      type: string
+                  required:
+                    - A
+                    - B
+                    - C
+                    - D
+                answer:
+                  type: string
+                  enum:
+                    - A
+                    - B
+                    - C
+                    - D
+                user_answr:
+                  type: string
+                  enum:
+                    - A
+                    - B
+                    - C
+                    - D
+                analysis:
+                  type: string
+                review_times:
+                  type: integer
+              required:
+                - folder_id
+                - description
+                - options
+                - answer
+                - user_answr
+      responses:
+        '201':
+          description: Question created
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer

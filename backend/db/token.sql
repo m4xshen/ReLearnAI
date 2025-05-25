@@ -32,3 +32,16 @@ CREATE TRIGGER update_tokens_updated_at
     BEFORE UPDATE ON tokens 
     FOR EACH ROW 
     EXECUTE FUNCTION update_updated_at_column();
+
+-- Add foreign key constraint for users.token_id after tokens table exists
+DO $$ 
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.table_constraints 
+        WHERE constraint_name = 'users_token_id_fkey'
+    ) THEN
+        ALTER TABLE users 
+        ADD CONSTRAINT users_token_id_fkey 
+        FOREIGN KEY (token_id) REFERENCES tokens(id) ON DELETE SET NULL;
+    END IF;
+END $$;

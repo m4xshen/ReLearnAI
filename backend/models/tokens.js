@@ -3,20 +3,39 @@ const crypto = require('crypto');
 
 class Token {
   static async create(userId, tokenString, tokenType = 'access', expiresIn = '7d') {
-    // Calculate expiration time
-    const expirationTime = this.calculateExpiration(expiresIn);
-    
-    // Hash the token for security
-    const tokenHash = crypto.createHash('sha256').update(tokenString).digest('hex');
-    
-    const query = `
-      INSERT INTO tokens (user_id, token_hash, token_type, expires_at)
-      VALUES ($1, $2, $3, $4)
-      RETURNING *
-    `;
-    
-    const result = await db.query(query, [userId, tokenHash, tokenType, expirationTime]);
-    return result.rows[0];
+    const client = await db.connect();
+    try {
+      await client.query('BEGIN');
+
+      // Calculate expiration time
+      const expirationTime = this.calculateExpiration(expiresIn);
+      
+      // Hash the token for security
+      const tokenHash = crypto.createHash('sha256').update(tokenString).digest('hex');
+      
+      const query = `
+        INSERT INTO tokens (user_id, token_hash, token_type, expires_at)
+        VALUES ($1, $2, $3, $4)
+        RETURNING *
+      `;
+      
+      const result = await client.query(query, [userId, tokenHash, tokenType, expirationTime]);
+      const token = result.rows[0];
+
+      // Update user's token_id to reference the latest token
+      await client.query(
+        'UPDATE users SET token_id = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
+        [token.id, userId]
+      );
+
+      await client.query('COMMIT');
+      return token;
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
   }
 
   static async findByToken(tokenString) {
@@ -36,39 +55,109 @@ class Token {
   }
 
   static async revokeToken(tokenString) {
-    const tokenHash = crypto.createHash('sha256').update(tokenString).digest('hex');
-    
-    const query = `
-      UPDATE tokens 
-      SET is_revoked = TRUE, updated_at = CURRENT_TIMESTAMP
-      WHERE token_hash = $1
-      RETURNING *
-    `;
-    
-    const result = await db.query(query, [tokenHash]);
-    return result.rows[0];
+    const client = await db.connect();
+    try {
+      await client.query('BEGIN');
+
+      const tokenHash = crypto.createHash('sha256').update(tokenString).digest('hex');
+      
+      const query = `
+        UPDATE tokens 
+        SET is_revoked = TRUE, updated_at = CURRENT_TIMESTAMP
+        WHERE token_hash = $1
+        RETURNING *
+      `;
+      
+      const result = await client.query(query, [tokenHash]);
+      const token = result.rows[0];
+
+      if (token) {
+        // Clear the user's token_id if this was their current token
+        await client.query(
+          'UPDATE users SET token_id = NULL, updated_at = CURRENT_TIMESTAMP WHERE token_id = $1',
+          [token.id]
+        );
+      }
+
+      await client.query('COMMIT');
+      return token;
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
   }
 
   static async revokeAllUserTokens(userId) {
-    const query = `
-      UPDATE tokens 
-      SET is_revoked = TRUE, updated_at = CURRENT_TIMESTAMP
-      WHERE user_id = $1 AND is_revoked = FALSE
-      RETURNING *
-    `;
-    
-    const result = await db.query(query, [userId]);
-    return result.rows;
+    const client = await db.connect();
+    try {
+      await client.query('BEGIN');
+
+      const query = `
+        UPDATE tokens 
+        SET is_revoked = TRUE, updated_at = CURRENT_TIMESTAMP
+        WHERE user_id = $1 AND is_revoked = FALSE
+        RETURNING *
+      `;
+      
+      const result = await client.query(query, [userId]);
+
+      // Clear the user's token_id
+      await client.query(
+        'UPDATE users SET token_id = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = $1',
+        [userId]
+      );
+
+      await client.query('COMMIT');
+      return result.rows;
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
   }
 
   static async cleanupExpiredTokens() {
-    const query = `
-      DELETE FROM tokens 
-      WHERE expires_at < CURRENT_TIMESTAMP OR is_revoked = TRUE
-    `;
-    
-    const result = await db.query(query);
-    return result.rowCount;
+    const client = await db.connect();
+    try {
+      await client.query('BEGIN');
+
+      // Get expired/revoked token IDs
+      const expiredTokensQuery = `
+        SELECT id FROM tokens 
+        WHERE expires_at < CURRENT_TIMESTAMP OR is_revoked = TRUE
+      `;
+      const expiredTokens = await client.query(expiredTokensQuery);
+      const expiredTokenIds = expiredTokens.rows.map(row => row.id);
+
+      if (expiredTokenIds.length > 0) {
+        // Clear token_id from users table for expired tokens
+        await client.query(
+          'UPDATE users SET token_id = NULL, updated_at = CURRENT_TIMESTAMP WHERE token_id = ANY($1)',
+          [expiredTokenIds]
+        );
+
+        // Delete expired tokens
+        const deleteQuery = `
+          DELETE FROM tokens 
+          WHERE expires_at < CURRENT_TIMESTAMP OR is_revoked = TRUE
+        `;
+        const result = await client.query(deleteQuery);
+        
+        await client.query('COMMIT');
+        return result.rowCount;
+      }
+
+      await client.query('COMMIT');
+      return 0;
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
   }
 
   static async getUserTokens(userId) {

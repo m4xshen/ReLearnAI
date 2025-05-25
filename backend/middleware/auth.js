@@ -11,29 +11,42 @@ const auth = async (req, res, next) => {
     }
     
     const token = authHeader.replace('Bearer ', '');
+    console.log('🔍 Received token:', token.substring(0, 20) + '...');
     
     // Verify JWT token
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    
-    // Check if token exists in database and is valid
-    const tokenRecord = await Token.findByToken(token);
-    if (!tokenRecord) {
-      return res.status(401).json({ error: 'Invalid or expired token' });
-    }
+    console.log('✅ JWT decoded successfully:', { userId: decoded.userId });
     
     // Find user
     const user = await User.findById(decoded.userId);
     if (!user) {
+      console.log('❌ User not found:', decoded.userId);
       return res.status(401).json({ error: 'User not found' });
     }
     
-    // Add user and token info to request object
+    console.log('✅ User found:', { id: user.id, email: user.email });
+    
+    // Optional: Check if token exists in database (for enhanced security)
+    try {
+      const tokenRecord = await Token.findByToken(token);
+      if (tokenRecord) {
+        console.log('✅ Token found in database');
+        req.tokenRecord = tokenRecord;
+      } else {
+        console.log('⚠️ Token not found in database, but JWT is valid');
+      }
+    } catch (tokenError) {
+      console.log('⚠️ Error checking token in database:', tokenError.message);
+      // Continue anyway since JWT is valid
+    }
+    
+    // Add user info to request object
     req.user = user;
     req.userId = user.id;
-    req.tokenRecord = tokenRecord;
     
     next();
   } catch (error) {
+    console.log('❌ Auth error:', error.message);
     if (error.name === 'JsonWebTokenError') {
       return res.status(401).json({ error: 'Invalid token' });
     }

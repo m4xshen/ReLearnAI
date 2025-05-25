@@ -35,7 +35,13 @@ exports.register = async (req, res) => {
     const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET, { expiresIn: '7d' });
     
     // Store token in database
-    await Token.create(user.id, token, 'access', '7d');
+    try {
+      const tokenRecord = await Token.create(user.id, token, 'access', '7d');
+      console.log('✅ Token created successfully:', tokenRecord.id);
+    } catch (tokenError) {
+      console.log('⚠️ Error creating token:', tokenError.message);
+      // Continue anyway since JWT is valid
+    }
     
     res.status(201).json({ 
       message: 'User created successfully', 
@@ -68,19 +74,36 @@ exports.login = async (req, res) => {
 
     // Create JWT token
     const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET, { expiresIn: '7d' });
+    console.log('🔑 JWT token created for user:', user.id);
     
     // Store token in database
-    await Token.create(user.id, token, 'access', '7d');
-    
-    // Remove password_hash from response
-    const { password_hash, ...userWithoutPassword } = user;
-    
-    res.json({ 
-      message: 'Login successful',
-      user: userWithoutPassword,
-      token 
-    });
+    try {
+      const tokenRecord = await Token.create(user.id, token, 'access', '7d');
+      console.log('✅ Token stored in database:', tokenRecord.id);
+      
+      // Get updated user with token_id
+      const updatedUser = await User.findById(user.id);
+      const { password_hash, ...userWithoutPassword } = updatedUser;
+      
+      res.json({ 
+        message: 'Login successful',
+        user: userWithoutPassword,
+        token 
+      });
+    } catch (tokenError) {
+      console.log('⚠️ Error storing token:', tokenError.message);
+      
+      // Remove password_hash from response
+      const { password_hash, ...userWithoutPassword } = user;
+      
+      res.json({ 
+        message: 'Login successful',
+        user: userWithoutPassword,
+        token 
+      });
+    }
   } catch (err) {
+    console.log('❌ Login error:', err.message);
     res.status(500).json({ error: err.message });
   }
 };

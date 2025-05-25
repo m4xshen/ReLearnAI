@@ -24,11 +24,17 @@ async function initializeDatabase() {
     // Wait for database to be ready
     await waitForDatabase();
 
-    // Read and execute users.sql
+    // Read and execute users.sql first (since tokens references users)
     const usersSql = fs.readFileSync(path.join(__dirname, '../db/users.sql'), 'utf8');
     console.log('📝 Executing users.sql...');
     await db.query(usersSql);
     console.log('✅ User table initialized.');
+
+    // Read and execute token.sql
+    const tokenSql = fs.readFileSync(path.join(__dirname, 'db/token.sql'), 'utf8');
+    console.log('📝 Executing token.sql...');
+    await db.query(tokenSql);
+    console.log('✅ Token table initialized.');
 
     // Read and execute questions.sql
     const questionsSql = fs.readFileSync(path.join(__dirname, 'db/questions.sql'), 'utf8');

@@ -1,6 +1,7 @@
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
 const User = require('../models/users');
+const Token = require('../models/tokens');
 
 console.log('✅ authController loaded');
 
@@ -30,8 +31,11 @@ exports.register = async (req, res) => {
     // Remove password_hash from response
     const { password_hash, ...userWithoutPassword } = user;
     
-    // Create token for immediate login after registration
+    // Create JWT token
     const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET, { expiresIn: '7d' });
+    
+    // Store token in database
+    await Token.create(user.id, token, 'access', '7d');
     
     res.status(201).json({ 
       message: 'User created successfully', 
@@ -62,8 +66,11 @@ exports.login = async (req, res) => {
     const match = await bcrypt.compare(password, user.password_hash);
     if (!match) return res.status(401).json({ error: 'Invalid credentials' });
 
-    // Create token
+    // Create JWT token
     const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET, { expiresIn: '7d' });
+    
+    // Store token in database
+    await Token.create(user.id, token, 'access', '7d');
     
     // Remove password_hash from response
     const { password_hash, ...userWithoutPassword } = user;
@@ -73,6 +80,29 @@ exports.login = async (req, res) => {
       user: userWithoutPassword,
       token 
     });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+exports.logout = async (req, res) => {
+  try {
+    const authHeader = req.header('Authorization');
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const token = authHeader.replace('Bearer ', '');
+      await Token.revokeToken(token);
+    }
+    
+    res.json({ message: 'Logout successful' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+exports.logoutAll = async (req, res) => {
+  try {
+    await Token.revokeAllUserTokens(req.user.id);
+    res.json({ message: 'All sessions logged out successfully' });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

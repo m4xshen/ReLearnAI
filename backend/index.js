@@ -6,6 +6,7 @@ const app = express();
 
 // Debug logging
 console.log('🚀 Starting server...');
+console.log('Environment:', process.env.NODE_ENV);
 
 // CORS configuration
 const corsOptions = {
@@ -23,6 +24,11 @@ app.use((req, res, next) => {
   next();
 });
 
+// Health check endpoint
+app.get('/health', (req, res) => {
+  res.json({ status: 'OK', timestamp: new Date().toISOString() });
+});
+
 const userRoutes = require('./routes/userRoutes');
 const questionRoutes = require('./routes/questionRoutes');
 
@@ -33,11 +39,24 @@ app.use('/api', questionRoutes);
 
 console.log('✅ Routes mounted');
 
+// Error handling middleware
+app.use((err, req, res, next) => {
+  console.error('Error:', err);
+  res.status(500).json({ error: 'Internal server error' });
+});
+
+// 404 handler
+app.use('*', (req, res) => {
+  res.status(404).json({ error: 'Route not found' });
+});
+
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`✅ Server running on port ${PORT}`);
   console.log('Available routes:');
+  console.log('- GET /health');
   console.log('- POST /auth/register');
   console.log('- POST /auth/login');
+  console.log('- GET /api/test');
   console.log('- POST /api/question-set');
 });

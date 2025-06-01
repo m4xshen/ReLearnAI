@@ -7,7 +7,6 @@ export async function POST(request: Request) {
   try {
     // const { quizId, wrongQuestions } = await request.json()
 
-    console.log(JSON.stringify(wrongQuestions, null, 2))
 
     const { text } = await generateText({
       model: anthropic("claude-3-5-haiku-20241022"),
@@ -29,8 +28,6 @@ export async function POST(request: Request) {
       `,
       temperature: 0.7,
     })
-
-    console.log(text)
 
     const generatedQuestions = JSON.parse(text)
 

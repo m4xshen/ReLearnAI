@@ -1,5 +1,8 @@
+"use client"
+
 import { useState } from 'react'
 import Image from 'next/image'
+import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Label } from '@/components/ui/label'
@@ -7,40 +10,45 @@ import { Textarea } from '@/components/ui/textarea'
 import { Progress } from '@/components/ui/progress'
 
 export interface Question {
-  id: number
-  content: string
-  options: { value: string; label: string }[]
-  correctAnswer: string
+  question_id?: string
+  id?: number
+  content?: string
+  description?: string
+  options: { value: string; label: string }[] | Record<string, string>
+  correctAnswer?: string
+  answer?: string
   explanation?: string
   userAnswer?: string
+  user_answer?: string
   isCorrect?: boolean
+  note?: string
 }
 
 interface QuizComponentProps {
   title: string
   questions: Question[]
   mode: 'new' | 'review'
-  onComplete?: (score: number) => void
-  onReturnHome?: () => void
-  isLoading?: boolean
+  quizId?: string
 }
 
 export function QuizComponent({
   title,
   questions,
   mode,
-  onComplete,
-  onReturnHome,
-  isLoading = false,
+  quizId,
 }: QuizComponentProps) {
+  const router = useRouter()
   const [currentQuestion, setCurrentQuestion] = useState(0)
   const [selectedAnswer, setSelectedAnswer] = useState<string>('')
   const [showExplanation, setShowExplanation] = useState(false)
   const [score, setScore] = useState(0)
   const [completed, setCompleted] = useState(false)
 
+  console.log(questions)
+
   const handleAnswer = () => {
-    if (selectedAnswer === questions[currentQuestion].correctAnswer) {
+    const correctAnswer = questions[currentQuestion].correctAnswer || questions[currentQuestion].answer
+    if (selectedAnswer === correctAnswer) {
       setScore(score + 1)
     }
     setShowExplanation(true)
@@ -54,7 +62,9 @@ export function QuizComponent({
       setCurrentQuestion(currentQuestion + 1)
     } else {
       setCompleted(true)
-      onComplete?.(score)
+      // Log quiz completion internally instead of calling a callback
+      console.log('Quiz completed with score:', score, 'Quiz ID:', quizId)
+      // Here you could make an API call to save the score if needed
     }
   }
 
@@ -66,21 +76,7 @@ export function QuizComponent({
     }
   }
 
-  if (isLoading) {
-    return (
-      <div className="container mx-auto px-4 py-8 flex flex-col items-center justify-center min-h-screen">
-        <div className="bg-white rounded-lg border p-8 w-full max-w-md text-center">
-          <h2 className="text-xl font-bold mb-4">
-            {mode === 'new' ? '正在生成題目...' : '正在載入題目...'}
-          </h2>
-          <div className="animate-pulse space-y-4">
-            <div className="h-4 bg-gray-200 rounded w-3/4 mx-auto"></div>
-            <div className="h-4 bg-gray-200 rounded w-1/2 mx-auto"></div>
-          </div>
-        </div>
-      </div>
-    )
-  }
+
 
   if (completed) {
     return (
@@ -91,7 +87,7 @@ export function QuizComponent({
           <p className="text-5xl font-bold mb-8">
             {score}/{questions.length}
           </p>
-          <Button onClick={onReturnHome} className="bg-gray-900 hover:bg-gray-800">
+          <Button onClick={() => router.push('/')} className="bg-gray-900 hover:bg-gray-800">
             回首頁
           </Button>
         </div>
@@ -101,7 +97,7 @@ export function QuizComponent({
 
   const currentQ = questions[currentQuestion]
   const isReviewMode = mode === 'review'
-  const showUserAnswer = isReviewMode && currentQ.userAnswer
+  const showUserAnswer = isReviewMode && (currentQ.userAnswer || currentQ.user_answer)
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -128,41 +124,71 @@ export function QuizComponent({
 
       <div className="bg-white rounded-lg border p-6">
         <div className="mb-6">
-          <h3 className="text-lg font-medium mb-4">{currentQ.content}</h3>
+          <h3 className="text-lg font-medium mb-4">{currentQ.content || currentQ.description}</h3>
           <RadioGroup
-            name={`question-${currentQ.id}`}
+            name={`question-${currentQ.id || currentQ.question_id}`}
             value={selectedAnswer}
             onValueChange={setSelectedAnswer}
             className="space-y-3"
           >
-            {currentQ.options.map((option) => {
-              const isSelected = selectedAnswer === option.value;
-              const isCorrect = option.value === currentQ.correctAnswer;
-              const showCorrect = showExplanation && isCorrect;
-              const showWrong = showExplanation && isSelected && !isCorrect;
+            {Array.isArray(currentQ.options) 
+              ? currentQ.options.map((option) => {
+                  const isSelected = selectedAnswer === option.value;
+                  const isCorrect = option.value === (currentQ.correctAnswer || currentQ.answer);
+                  const showCorrect = showExplanation && isCorrect;
+                  const showWrong = showExplanation && isSelected && !isCorrect;
 
-              return (
-                <Label
-                  key={option.value}
-                  htmlFor={`option-${option.value}`}
-                  className={
-                    `flex items-center space-x-2 border rounded-md p-3 cursor-pointer ` +
-                    (isSelected ? 'bg-gray-100 ' : '') +
-                    (showCorrect ? 'border-green-500 bg-green-50 ' : '') +
-                    (showWrong ? 'border-red-500 bg-red-50 ' : '')
-                  }
-                >
-                  <RadioGroupItem
-                    value={option.value}
-                    id={`option-${option.value}`}
-                    disabled={false}
-                  />
-                  <span className="ml-2">
-                    {option.value}. {option.label}
-                  </span>
-                </Label>
-              );
-            })}
+                  return (
+                    <Label
+                      key={option.value}
+                      htmlFor={`option-${option.value}`}
+                      className={
+                        `flex items-center space-x-2 border rounded-md p-3 cursor-pointer ` +
+                        (isSelected ? 'bg-gray-100 ' : '') +
+                        (showCorrect ? 'border-green-500 bg-green-50 ' : '') +
+                        (showWrong ? 'border-red-500 bg-red-50 ' : '')
+                      }
+                    >
+                      <RadioGroupItem
+                        value={option.value}
+                        id={`option-${option.value}`}
+                        disabled={false}
+                      />
+                      <span className="ml-2">
+                        {option.value}. {option.label}
+                      </span>
+                    </Label>
+                  );
+                })
+              : Object.entries(currentQ.options).map(([key, value]) => {
+                  const isSelected = selectedAnswer === key;
+                  const isCorrect = key === (currentQ.correctAnswer || currentQ.answer);
+                  const showCorrect = showExplanation && isCorrect;
+                  const showWrong = showExplanation && isSelected && !isCorrect;
+
+                  return (
+                    <Label
+                      key={key}
+                      htmlFor={`option-${key}`}
+                      className={
+                        `flex items-center space-x-2 border rounded-md p-3 cursor-pointer ` +
+                        (isSelected ? 'bg-gray-100 ' : '') +
+                        (showCorrect ? 'border-green-500 bg-green-50 ' : '') +
+                        (showWrong ? 'border-red-500 bg-red-50 ' : '')
+                      }
+                    >
+                      <RadioGroupItem
+                        value={key}
+                        id={`option-${key}`}
+                        disabled={false}
+                      />
+                      <span className="ml-2">
+                        {key}. {value}
+                      </span>
+                    </Label>
+                  );
+                })
+            }
           </RadioGroup>
 
           {showExplanation && (

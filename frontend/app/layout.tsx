@@ -3,6 +3,7 @@ import type { Metadata } from "next"
 import { Inter } from "next/font/google"
 import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
+import { CookiesProvider } from "next-client-cookies/server"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -20,9 +21,11 @@ export default function RootLayout({
   return (
     <html lang="zh-TW">
       <body className={inter.className}>
-        <ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>
-          {children}
-        </ThemeProvider>
+        <CookiesProvider>
+          <ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>
+            {children}
+          </ThemeProvider>
+        </CookiesProvider>
       </body>
     </html>
   )

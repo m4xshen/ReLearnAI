@@ -2,9 +2,10 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import Image from "next/image"
+import { useCookies } from "next-client-cookies"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -29,11 +30,21 @@ interface Question {
 
 export default function CreateQuizPage() {
   const router = useRouter()
+  const cookies = useCookies()
   const [title, setTitle] = useState("")
   const [subject, setSubject] = useState<string>("")
+  const [userId, setUserId] = useState<string>("") 
   const [questions, setQuestions] = useState<Question[]>([
     { id: 1, content: "", correctAnswer: "", userAnswer: "", note: "", options: { A: "", B: "", C: "", D: "" } },
   ])
+  
+  useEffect(() => {
+    // Get userId from cookie using next-client-cookies
+    const userIdValue = cookies.get('userId')
+    if (userIdValue) {
+      setUserId(userIdValue)
+    }
+  }, [cookies])
 
   const addQuestion = () => {
     const newId = questions.length + 1
@@ -66,7 +77,7 @@ export default function CreateQuizPage() {
         note: q.note
       }))
       
-      const response = await fetch("/api/question-set", {
+      const response = await fetch("https://relearnai.onrender.com/api/question-set", {
         method: "POST",
         headers: {
           "Content-Type": "application/json"
@@ -74,13 +85,14 @@ export default function CreateQuizPage() {
         body: JSON.stringify({
           folder_name: title,
           tag_name: subject,
+          user_id: userId,
           questions: formattedQuestions
         })
       })
       
       const data = await response.json()
       
-      if (response.status === 201 && data.success) {
+      if (response.status === 201) {
         alert("題目集創建成功！")
         router.push("/")
       } else {

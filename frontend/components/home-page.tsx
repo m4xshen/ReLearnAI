@@ -10,16 +10,21 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { CalendarIcon, LogOut, Tag } from "lucide-react"
 import { signOut } from "@/app/actions/auth"
 
-type Subject = "數學" | "英文" | "物理"
+type Subject = "數學" | "英文" | "物理" | string
 
-interface Quiz {
-  id: string
-  title: string
-  date: string
-  subject: Subject
+interface Folder {
+  folder_id: string
+  folder_title: string
+  tag_id: string
+  tag_name: Subject
+  questions: any[]
 }
 
-export function HomePage() {
+interface HomePageProps {
+  folders: Folder[]
+}
+
+export function HomePage({ folders = [] }: HomePageProps) {
   const router = useRouter()
   const [filter, setFilter] = useState<Subject | "all">("all")
   const [isLoading, setIsLoading] = useState(false)
@@ -36,16 +41,11 @@ export function HomePage() {
     }
   }
 
-  // 模擬的測驗數據
-  const quizzes: Quiz[] = [
-    { id: "1", title: "數學 Ch3 小考", date: "Apr 8 2025", subject: "數學" },
-    { id: "2", title: "英語小考", date: "Apr 8 2025", subject: "英文" },
-    { id: "3", title: "物理 Ch3 小考", date: "Apr 8 2025", subject: "物理" },
-    { id: "4", title: "數學 Ch2 小考", date: "Apr 8 2025", subject: "數學" },
-    { id: "5", title: "數學 Ch3 小考", date: "Apr 8 2025", subject: "數學" },
-  ]
-
-  const filteredQuizzes = filter === "all" ? quizzes : quizzes.filter((quiz) => quiz.subject === filter)
+  // Get unique tag names for the filter dropdown
+  const uniqueSubjects = [...new Set(folders.map(folder => folder.tag_name))]
+  
+  // Filter folders based on selected tag
+  const filteredFolders = filter === "all" ? folders : folders.filter((folder) => folder.tag_name === filter)
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -80,9 +80,9 @@ export function HomePage() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">全部</SelectItem>
-              <SelectItem value="數學">數學</SelectItem>
-              <SelectItem value="英文">英文</SelectItem>
-              <SelectItem value="物理">物理</SelectItem>
+              {uniqueSubjects.map((subject) => (
+                <SelectItem key={subject} value={subject}>{subject}</SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
@@ -92,35 +92,44 @@ export function HomePage() {
       </div>
 
       <div className="space-y-4">
-        {filteredQuizzes.map((quiz) => (
-          <Card key={quiz.id} className="overflow-hidden">
-            <CardContent className="p-6">
-              <div className="flex flex-col gap-2">
-                <h3 className="text-lg font-semibold">{quiz.title}</h3>
-                <div className="flex items-center text-sm text-gray-500">
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  <span>{quiz.date}</span>
+        {filteredFolders.length > 0 ? (
+          filteredFolders.map((folder) => (
+            <Card key={folder.folder_id} className="overflow-hidden">
+              <CardContent className="p-6">
+                <div className="flex flex-col gap-2">
+                  <h3 className="text-lg font-semibold">{folder.folder_title}</h3>
+                  <div className="flex items-center text-sm text-gray-500">
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    <span>{new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                  </div>
+                  <div className="flex items-center text-sm text-gray-500">
+                    <Tag className="mr-2 h-4 w-4" />
+                    <span>{folder.tag_name}</span>
+                  </div>
+                  <div className="text-sm text-gray-500">
+                    <span>題目數量: {folder.questions.length}</span>
+                  </div>
                 </div>
-                <div className="flex items-center text-sm text-gray-500">
-                  <Tag className="mr-2 h-4 w-4" />
-                  <span>{quiz.subject}</span>
-                </div>
-              </div>
-            </CardContent>
-            <CardFooter className="bg-gray-50 p-4 flex justify-end gap-2">
-              <Link href={`/generate/${quiz.id}`}>
-                <Button variant="outline" className="bg-gray-900 text-white hover:bg-gray-800">
-                  產生新題
-                </Button>
-              </Link>
-              <Link href={`/quiz/${quiz.id}`}>
-                <Button variant="outline" className="bg-gray-900 text-white hover:bg-gray-800">
-                  複習
-                </Button>
-              </Link>
-            </CardFooter>
-          </Card>
-        ))}
+              </CardContent>
+              <CardFooter className="bg-gray-50 p-4 flex justify-end gap-2">
+                <Link href={`/generate/${folder.folder_id}`}>
+                  <Button variant="outline" className="bg-gray-900 text-white hover:bg-gray-800">
+                    產生新題
+                  </Button>
+                </Link>
+                <Link href={`/quiz/${folder.folder_id}`}>
+                  <Button variant="outline" className="bg-gray-900 text-white hover:bg-gray-800">
+                    複習
+                  </Button>
+                </Link>
+              </CardFooter>
+            </Card>
+          ))
+        ) : (
+          <div className="text-center py-10">
+            <p className="text-gray-500">沒有找到題本，請建立新題本</p>
+          </div>
+        )}
       </div>
     </div>
   )

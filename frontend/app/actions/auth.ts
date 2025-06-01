@@ -37,9 +37,29 @@ export async function signIn(formData: { email: string; password: string }) {
 
     const data = await response.json();
     
-    // Store the token in a secure HTTP-only cookie
+    // Parse and print JWT token data
     if (data.token) {
-      // Use the proper Next.js cookies API
+      // Parse JWT token (without using external libraries)
+      const tokenParts = data.token.split('.');
+      let userId = null;
+      
+      if (tokenParts.length === 3) {
+        try {
+          // Decode the payload (second part of the token)
+          const payload = JSON.parse(Buffer.from(tokenParts[1], 'base64').toString());
+          console.log('Decoded token data:', payload);
+          
+          // Extract user ID from token payload
+          if (payload.userId) {
+            userId = payload.userId;
+            console.log('User ID from token:', userId);
+          }
+        } catch (error) {
+          console.error('Error parsing JWT token:', error);
+        }
+      }
+      
+      // Store the token in a secure HTTP-only cookie
       const cookieStore = await cookies();
       cookieStore.set({
         name: 'token',
@@ -51,6 +71,20 @@ export async function signIn(formData: { email: string; password: string }) {
         // Set an appropriate expiration time
         maxAge: 60 * 60 * 24 * 7, // 1 week
       });
+      
+      // Store user ID from token in a separate cookie
+      if (userId) {
+        console.log('Storing user ID in cookie:', userId);
+        cookieStore.set({
+          name: 'userId',
+          value: userId,
+          httpOnly: false, // Allow JavaScript access if needed
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: 'strict',
+          path: '/',
+          maxAge: 60 * 60 * 24 * 7, // 1 week
+        });
+      }
     }
 
     return { success: true };
@@ -61,8 +95,10 @@ export async function signIn(formData: { email: string; password: string }) {
 }
 
 export async function signOut() {
-  // Clear the token cookie using the proper Next.js cookies API
+  // Clear the token and userId cookies using the proper Next.js cookies API
   const cookieStore = await cookies();
   cookieStore.delete('token');
+  cookieStore.delete('userId');
+  console.log('Deleted token and userId cookies');
   return { success: true };
 }

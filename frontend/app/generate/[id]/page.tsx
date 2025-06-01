@@ -1,73 +1,69 @@
 "use client"
 
-import { useState } from "react"
-import { useRouter } from "next/navigation"
-import Image from "next/image"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Loader2 } from "lucide-react"
+import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { QuizComponent, type Question } from '@/components/quiz/QuizComponent'
 
 export default function GeneratePage({ params }: { params: { id: string } }) {
   const router = useRouter()
-  const [isGenerating, setIsGenerating] = useState(false)
-  const [isGenerated, setIsGenerated] = useState(false)
+  const [questions, setQuestions] = useState<Question[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
-  const handleGenerate = () => {
-    setIsGenerating(true)
-    // 模擬生成過程
-    setTimeout(() => {
-      setIsGenerating(false)
-      setIsGenerated(true)
-    }, 2000)
+  useEffect(() => {
+    const fetchQuestions = async () => {
+      try {
+        const response = await fetch(`/api/generate-questions`, {
+          method: 'POST'
+        })
+        if (!response.ok) {
+          throw new Error('Failed to generate questions')
+        }
+        const data = await response.json()
+        setQuestions(data.questions)
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'An error occurred')
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchQuestions()
+  }, [params.id])
+
+  const handleComplete = (score: number) => {
+    console.log('測驗完成，得分：', score)
+  }  
+
+  const handleReturnHome = () => {
+    router.push('/')
   }
 
-  const handleStartQuiz = () => {
-    router.push(`/quiz/${params.id}`)
+  if (error) {
+    return (
+      <div className="container mx-auto px-4 py-8 flex flex-col items-center justify-center min-h-screen">
+        <div className="bg-white rounded-lg border p-8 w-full max-w-md text-center">
+          <h2 className="text-xl font-bold mb-4 text-red-600">發生錯誤</h2>
+          <p className="mb-6">{error}</p>
+          <button
+            onClick={() => router.push('/')}
+            className="bg-gray-900 text-white px-4 py-2 rounded hover:bg-gray-800"
+          >
+            返回首頁
+          </button>
+        </div>
+      </div>
+    )
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <header className="flex justify-between items-center mb-8">
-        <h1 className="text-3xl font-bold">ReLearnAI</h1>
-        <Image
-          src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/%E9%A6%96%E9%A0%81-FdCoEHnALIf50wdlzKQV8AyxDz6RRe.png"
-          alt="Logo"
-          width={50}
-          height={50}
-          className="rounded-full"
-        />
-      </header>
-
-      <Card className="max-w-md mx-auto">
-        <CardHeader>
-          <CardTitle className="text-xl">數學 Ch3 小考</CardTitle>
-        </CardHeader>
-        <CardContent className="flex flex-col items-center justify-center p-6">
-          {!isGenerating && !isGenerated ? (
-            <>
-              <p className="text-center mb-6">系統將根據您之前的錯題，生成新的練習題目。</p>
-              <Button onClick={handleGenerate} className="bg-gray-900 hover:bg-gray-800">
-                生成練習題
-              </Button>
-            </>
-          ) : isGenerating ? (
-            <div className="flex flex-col items-center py-8">
-              <Loader2 className="h-8 w-8 animate-spin mb-4" />
-              <p>正在生成題目，請稍候...</p>
-            </div>
-          ) : (
-            <>
-              <div className="flex flex-col items-center py-8">
-                <p className="text-lg font-medium mb-2">題目已生成！</p>
-                <p className="text-sm text-gray-500 mb-6">系統已根據您的錯題生成了10道練習題。</p>
-                <Button onClick={handleStartQuiz} className="bg-gray-900 hover:bg-gray-800">
-                  開始練習
-                </Button>
-              </div>
-            </>
-          )}
-        </CardContent>
-      </Card>
-    </div>
+    <QuizComponent
+      title="新測驗"
+      questions={questions}
+      mode="new"
+      onComplete={handleComplete}
+      onReturnHome={handleReturnHome}
+      isLoading={isLoading}
+    />
   )
 }
